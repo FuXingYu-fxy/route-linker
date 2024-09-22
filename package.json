@@ -13,6 +13,14 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "contributes": {
+    "commands":[
+      {
+        "command": "route-linker.showRouteOutputChannel",
+        "title": "Show Route Output Channel"
+      }
+    ]
+  },
   "main": "./out/extension.js",
   "scripts": {
     "vscode:prepublish": "npm run compile",

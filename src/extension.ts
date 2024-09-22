@@ -1,27 +1,26 @@
 import path from 'path';
-import { getFile, getFullPath } from './util';
-import { routerParser } from './router-parser';
+import { getFile, getFullPath, getLanguageConfig } from './util';
+import { createAliasParser, routerParser } from './router-parser';
 import { readJsonSync } from 'fs-extra';
 import vscode from 'vscode';
 const pkg = readJsonSync(path.join(__dirname, '../package.json'));
 
 export async function activate(context: vscode.ExtensionContext) {
   const workspace = vscode.workspace.workspaceFolders;
-  const workspacePath = workspace ? workspace[0].uri.fsPath : '';
+  const projectDir = workspace ? workspace[0].uri.fsPath : '';
   const outputChannel = vscode.window.createOutputChannel(pkg.displayName);
+  let languageConfig;
 
-  const routeDefinitionPath = path.join(workspacePath, 'src/router/index.js');
+  languageConfig = getLanguageConfig(projectDir);
+  const aliasParser = createAliasParser(languageConfig.compilerOptions.paths);
+
+  const routeDefinitionPath = path.join(projectDir, 'src/router/index.js');
   const code = await getFile(routeDefinitionPath);
   // ast编译
   const { result } = routerParser(code);
-  outputChannel.appendLine(`result: ${JSON.stringify(result, null, 2)}`);
-  vscode.window.showInformationMessage('插件已激活');
-  
 
   const disposable1 = vscode.languages.registerDefinitionProvider(['javascript', 'vue'], {
     provideDefinition(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken) {
-      const fileName = document.fileName;
-      const workDir = path.dirname(fileName);
       const wordRange = document.getWordRangeAtPosition(position);
       const word = document.getText(wordRange);
       const line = document.lineAt(position);
@@ -29,8 +28,6 @@ export async function activate(context: vscode.ExtensionContext) {
       outputChannel.appendLine(`当前光标所在单词: ${word}`);
       outputChannel.appendLine(`当前光标所在行: ${line.text}`);
 
-      const targetFile = `${path.join(workDir, 'App.vue')}`;
-      const targetFileUri = vscode.Uri.file(targetFile);
 
       // 获取高亮文本的范围
       if (!word) {
@@ -49,6 +46,13 @@ export async function activate(context: vscode.ExtensionContext) {
         new vscode.Position(position.line, end)
       );
 
+      
+      const targetFile = path.join(projectDir, aliasParser(result[targetStr]));
+      outputChannel.appendLine(`当前光标所在行的字符串对应的文件: ${result[targetStr]}`);
+      outputChannel.appendLine(`当前光标所在行的字符串对应的文件的绝对路径: ${targetFile}`);
+
+      const targetFileUri = vscode.Uri.file(targetFile);
+
       // 可以返回定义位置或者定义链接, 以下是返回的定义链接
       const ret: vscode.DefinitionLink = {
         originSelectionRange: range,
@@ -60,7 +64,11 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  context.subscriptions.push(disposable1);
+  const disposable2 = vscode.commands.registerCommand(`${pkg.name}.showRouteOutputChannel`, () => {
+    outputChannel.appendLine(`result: ${JSON.stringify(result, null, 2)}`);
+  });
+
+  context.subscriptions.push(disposable1, disposable2);
 }
 
 

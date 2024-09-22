@@ -1,6 +1,8 @@
 
 import { name } from '../package.json';
-import { readFile } from "fs-extra";
+import { existsSync, readFile, readFileSync, readJSONSync } from "fs-extra";
+import path from 'path';
+import { JsConfig } from './types/bast';
 
 
 export const info = (...args: any[]) => console.log(`[${name}] `, ...args);
@@ -50,3 +52,14 @@ export function getFullPath(code: string, word: string) {
   return ret; 
 }
 
+
+/** 读取项目根目录下的jsconfig.json或者tsconfig.json文件 */
+export function getLanguageConfig(dir: string): JsConfig {
+  const languageConfig = ['js', 'ts'].map(v => path.join(dir, `${v}config.json`));
+  for (const config of languageConfig) {
+    if (existsSync(config)) {
+      return readJSONSync(config, 'utf-8');
+    }
+  }
+  throw new Error('未找到jsconfig.json或者tsconfig.json文件');
+}
