@@ -1,7 +1,15 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Node, NodePath, parseSync, traverse } from '@babel/core';
-import { stringLiteral, type ObjectProperty } from '@babel/types';
+import { ArrowFunctionExpression, stringLiteral, type ObjectProperty } from '@babel/types';
 import { RouterParseResult } from './types/bast';
+
+function resolveArrowFunctionExpression(node: NodePath<ArrowFunctionExpression>) {
+  const args = node.get('body').get('arguments') as NodePath<Node>[];
+  const arg = args[0];
+  if (arg.isStringLiteral()) {
+    return arg.node.value;
+  }
+}
 
 function createIsLiteralValueNodePath(name: string) {
   return function isLiteralNodePath(nodePath: NodePath<ObjectProperty>): nodePath is NodePath<ObjectProperty> {
@@ -60,14 +68,14 @@ export function routerParser(code?: string) {
           pathValue = state.parent.join('/');
             // 1. Identifier
           if (valuePathNode.isIdentifier()) {
-            // TODO 支持 idnetifier
-            // state.result[pathValue] = valuePathNode.node.name;
-            // 2. ArrowFunctionExpression
-          } else if (valuePathNode.isArrowFunctionExpression()) {
-            const args = valuePathNode.get('body').get('arguments') as NodePath<Node>[];
-            const arg = args[0];
-            if (arg.isStringLiteral()) {
-              state.result[pathValue] = arg.node.value;
+            const scopeBinding = valuePathNode.scope.getBinding(valuePathNode.node.name);
+            const maybeArrowFn = (scopeBinding?.path.get('init') as NodePath<ArrowFunctionExpression>);
+            valuePathNode = maybeArrowFn;
+          } 
+          if (valuePathNode.isArrowFunctionExpression()) {
+            const ret = resolveArrowFunctionExpression(valuePathNode);
+            if (ret) {
+              state.result[pathValue] = ret;
             }
           }
 

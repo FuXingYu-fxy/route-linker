@@ -5,6 +5,7 @@ import { readJsonSync } from 'fs-extra';
 import vscode from 'vscode';
 const pkg = readJsonSync(path.join(__dirname, '../package.json'));
 
+const defaultRoutePath = 'src/router/index.js';
 export async function activate(context: vscode.ExtensionContext) {
   const workspace = vscode.workspace.workspaceFolders;
   const projectDir = workspace ? workspace[0].uri.fsPath : '';
@@ -13,8 +14,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
   languageConfig = getLanguageConfig(projectDir);
   const aliasParser = createAliasParser(languageConfig.compilerOptions.paths);
+  // 获取vscode配置文件定义的路由位置
+  const routePath: string = vscode.workspace.getConfiguration(`${pkg.name}`).get('routeFile') ?? defaultRoutePath;
 
-  const routeDefinitionPath = path.join(projectDir, 'src/router/index.js');
+  const routeDefinitionPath = path.join(projectDir, routePath);
   const code = await getFile(routeDefinitionPath);
   // ast编译
   const { result } = routerParser(code);
